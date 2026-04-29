@@ -7,6 +7,8 @@ from langchain_community.document_loaders import (WebBaseLoader,
                                                   PyPDFLoader, 
                                                   TextLoader,
                                                   UnstructuredExcelLoader)
+from youtube_transcript_api import YouTubeTranscriptApi
+
 from fake_useragent import UserAgent
 
 def carrega_site(url):
@@ -27,10 +29,31 @@ def carrega_site(url):
     return documento
 
 def carrega_youtube(video_id):
-    loader = YoutubeLoader(video_id, add_video_info=False, language=['pt'])
-    lista_documentos = loader.load()
-    documento = '\n\n'.join([doc.page_content for doc in lista_documentos])
-    return documento
+    try:
+        # valida se existe transcript
+        YouTubeTranscriptApi.list_transcripts(video_id)
+
+        loader = YoutubeLoader(
+            video_id,
+            add_video_info=False,
+            language=['pt', 'en']  # fallback inteligente
+        )
+
+        lista_documentos = loader.load()
+
+        if not lista_documentos:
+            raise ValueError("Sem conteúdo no vídeo")
+
+        documento = '\n\n'.join([doc.page_content for doc in lista_documentos])
+
+        if not documento.strip():
+            raise ValueError("Transcript vazio")
+
+        return documento
+
+    except Exception as e:
+        st.error(f"Erro ao carregar vídeo: {str(e)}")
+        st.stop()
 
 def carrega_csv(caminho):
     loader = CSVLoader(caminho)
